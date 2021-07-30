@@ -4,6 +4,7 @@ import json
 import sys,os,inspect
 import colorama
 from colorama import Fore, Back, Style
+from random import random
 
 colorama.init(autoreset=True)
 
@@ -52,7 +53,10 @@ class BKT(OuterLoopController):
         # global bkt_config
         self.bkt_config = outer_loop_args
 
-        self.choose_max_unmastered = True
+        self.choose_min_unmastered = False
+        if 'choose_min_unmastered' in outer_loop_args:
+            self.choose_min_unmastered = outer_loop_args['choose_min_unmastered']
+        self.choose_max_unmastered = False
         if 'choose_max_unmastered' in outer_loop_args:
             self.choose_max_unmastered = outer_loop_args['choose_max_unmastered']
 
@@ -210,16 +214,17 @@ class BKT(OuterLoopController):
                 len(self.action_space) == 0):
             # All skills have been mastered or we've asked as many
             # problems as allowed - stop training.
-            self.test_mode  = True;
+            self.test_mode  = True
             print("Mastery estimates when entering testing:",self.mastery_prob)
             print("skills mastered:",self.all_skills_mastered())
         
         if not self.test_mode:
             print("Asking for problem ", len(self.rewards))
             print("Mastery_Probabilities: ",self.mastery_prob)
-            # Choose a problem with the most unmastered skills 
+            # Choose a problem with the most unmastered skills
             
             max_unmastered_kcs = 0
+            min_unmastered_kcs = 2147483647
             problem_with_unmastered_kcs = []
             for problem in self.action_space:
                 kcs = self.get_problem_kcs(problem)
@@ -233,23 +238,44 @@ class BKT(OuterLoopController):
                 unmastered_kcs = [kc for kc in kcs if self.mastery_prob[kc] <= mastery_threshold]
                 if len(unmastered_kcs) == 0:
                     continue
+                # Original BKT
                 elif self.choose_max_unmastered:
                     if len(unmastered_kcs) > max_unmastered_kcs:
                         max_unmastered_kcs = len(unmastered_kcs)
                         problem_with_unmastered_kcs = [problem]
                     elif len(unmastered_kcs) == max_unmastered_kcs: # We'll choose randomly among problems with the same number of unmastered skills
                         problem_with_unmastered_kcs.append(problem)
+                # Modified BKT_num
+                elif self.choose_min_unmastered:
+                    if len(unmastered_kcs) < min_unmastered_kcs:
+                        min_unmastered_kcs = len(unmastered_kcs)
+                        problem_with_unmastered_kcs = [problem]
+                    elif len(unmastered_kcs) == min_unmastered_kcs:
+                        problem_with_unmastered_kcs.append(problem)
+                # Original BKT_prob & Modified BKT_prob
                 else:
-                    problem_with_max_unmastered_kcs.append(problem)
+                    score = len(kcs) - sum([self.mastery_prob[kc] for kc in kcs])
+                    problem_with_unmastered_kcs.append((score, random(), problem))
+
+                    # problem_with_max_unmastered_kcs.append(problem)
 
             if len(problem_with_unmastered_kcs) == 0:
-                self.test_mode  = True;
+                self.test_mode  = True
                 log.info("Streak counts when entering testing:", self.correct_counts)
                 log.info("Skills mastered:", self.all_skills_mastered())
             else:
                 # print("Number of problems with", max_unmastered_kcs, "unmastered skills:", len(problem_with_max_unmastered_kcs))
                 # Choose a random problem from problems with the maximum unmastered skills
-                nxt = choice(problem_with_unmastered_kcs)
+                if self.choose_max_unmastered or self.choose_min_unmastered:
+                    nxt = choice(problem_with_unmastered_kcs)
+                else:
+                    # Original BKT_prob
+                    if self.choose_max_unmastered_prob:
+                        problem_with_unmastered_kcs.sort(reverse=True)
+                    # Modified BKT_prob
+                    else:
+                        problem_with_unmastered_kcs.sort()
+                    nxt = problem_with_unmastered_kcs[0][2]
 
                 if not self.reuse_problems:
                     self.action_space.remove(nxt)
