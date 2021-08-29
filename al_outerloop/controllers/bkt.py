@@ -56,7 +56,7 @@ class BKT(OuterLoopController):
         self.choose_min_unmastered = False
         if 'choose_min_unmastered' in outer_loop_args:
             self.choose_min_unmastered = outer_loop_args['choose_min_unmastered']
-        self.choose_max_unmastered = False
+        self.choose_max_unmastered = True
         if 'choose_max_unmastered' in outer_loop_args:
             self.choose_max_unmastered = outer_loop_args['choose_max_unmastered']
 
@@ -87,6 +87,10 @@ class BKT(OuterLoopController):
                 if kc not in self.problems_by_skill:
                      self.problems_by_skill[kc] = []
                 self.problems_by_skill[kc].append(problem)
+        print("========= KC problems =========")
+        for kc in ["AD check_convert","AD den3","AD num3","AD den4","AD num4","AD den5","AD num5","AD done","AS den5","AS num5","AS done","M den5","M num5","M done"]:
+            print(self.problems_by_skill[kc])
+        print("========= KC problems ends =========")
 
         self.steps_updated = set()
 
@@ -238,26 +242,22 @@ class BKT(OuterLoopController):
                 unmastered_kcs = [kc for kc in kcs if self.mastery_prob[kc] <= mastery_threshold]
                 if len(unmastered_kcs) == 0:
                     continue
-                # Original BKT
                 elif self.choose_max_unmastered:
                     if len(unmastered_kcs) > max_unmastered_kcs:
                         max_unmastered_kcs = len(unmastered_kcs)
                         problem_with_unmastered_kcs = [problem]
                     elif len(unmastered_kcs) == max_unmastered_kcs: # We'll choose randomly among problems with the same number of unmastered skills
                         problem_with_unmastered_kcs.append(problem)
-                # Modified BKT_num
                 elif self.choose_min_unmastered:
                     if len(unmastered_kcs) < min_unmastered_kcs:
                         min_unmastered_kcs = len(unmastered_kcs)
                         problem_with_unmastered_kcs = [problem]
                     elif len(unmastered_kcs) == min_unmastered_kcs:
                         problem_with_unmastered_kcs.append(problem)
-                # Original BKT_prob & Modified BKT_prob
+                    # problem_with_max_unmastered_kcs.append(problem)
                 else:
                     score = len(kcs) - sum([self.mastery_prob[kc] for kc in kcs])
                     problem_with_unmastered_kcs.append((score, random(), problem))
-
-                    # problem_with_max_unmastered_kcs.append(problem)
 
             if len(problem_with_unmastered_kcs) == 0:
                 self.test_mode  = True
@@ -269,12 +269,8 @@ class BKT(OuterLoopController):
                 if self.choose_max_unmastered or self.choose_min_unmastered:
                     nxt = choice(problem_with_unmastered_kcs)
                 else:
-                    # Original BKT_prob
-                    if self.choose_max_unmastered_prob:
-                        problem_with_unmastered_kcs.sort(reverse=True)
-                    # Modified BKT_prob
-                    else:
-                        problem_with_unmastered_kcs.sort()
+                    # problem_with_unmastered_kcs.sort()
+                    problem_with_unmastered_kcs.sort(reverse=True)
                     nxt = problem_with_unmastered_kcs[0][2]
 
                 if not self.reuse_problems:
